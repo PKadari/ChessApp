@@ -1,0 +1,22 @@
+# Ignore environment variable files
+.env
+# Ignore user-specific files
+*.user
+*.vs
+# Ignore build output
+bin/
+obj/
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+
+# Ignore OOPs directory
+ChessApp/OOPs/
+
+# Ignore all markdown files except README.md
+ChessApp/*.md
+!ChessApp/README.md
+
+# (Optional) Ignore markdown files in subdirectories as well
+ChessApp/**/*.md
+!ChessApp/README.md
