@@ -167,8 +167,14 @@ public partial class MainPage : ContentPage
             VerticalOptions = LayoutOptions.Center,
             Margin = new Thickness(0, 10, 0, 10)
         };
-        resetButton.Clicked += (s, e) =>
+        resetButton.Clicked += async (s, e) =>
         {
+            bool goHome = await DisplayAlert("Reset Game", "Do you want to return to Home or just reset the board?", "Home", "Reset Only");
+            if (goHome)
+            {
+                ShowInitialScreen();
+                return;
+            }
             game.StartNewGame();
             BuildChessBoard(boardGrid!);
             UpdateMoveHistoryPanel();
@@ -216,6 +222,30 @@ public partial class MainPage : ContentPage
         Grid.SetColumn(homeButton, 2);
         Grid.SetColumnSpan(homeButton, 2);
         parentGrid.Children.Add(homeButton);
+        var withdrawButton = new Button
+        {
+            Text = "Withdraw (Resign)",
+            FontAttributes = FontAttributes.Bold,
+            BackgroundColor = Colors.DarkOrange,
+            TextColor = Colors.White,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
+            Margin = new Thickness(0, 10, 0, 10)
+        };
+        withdrawButton.Clicked += async (s, e) =>
+        {
+            string winner = game.IsWhiteTurn ? "Black" : "White";
+            await DisplayAlert("Game Over", $"{(game.IsWhiteTurn ? "White" : "Black")} resigns. {winner} wins!", "OK");
+            bool goHome = await DisplayAlert("Resignation", "Return to Home or play again?", "Home", "Reset Board");
+            if (goHome) { ShowInitialScreen(); return; }
+            game.StartNewGame();
+            BuildChessBoard(boardGrid!);
+            UpdateMoveHistoryPanel();
+        };
+        Grid.SetRow(withdrawButton, 9);
+        Grid.SetColumn(withdrawButton, 4);
+        Grid.SetColumnSpan(withdrawButton, 2);
+        parentGrid.Children.Add(withdrawButton);
         Content = parentGrid;
         if (aiEnabled && aiIsWhite && !game.IsGameOver)
             _ = MakeAIMoveIfNeeded();
