@@ -7,6 +7,9 @@ public class ChessGame
     public List<Move> MoveHistory { get; } = new();
     public bool IsGameOver { get; private set; } = false;
 
+    // Track en passant target square (row, col)
+    public (int row, int col)? EnPassantTarget { get; private set; } = null;
+
     public void StartNewGame()
     {
         Board.Clear();
@@ -14,6 +17,7 @@ public class ChessGame
         IsWhiteTurn = true;
         MoveHistory.Clear();
         IsGameOver = false;
+        EnPassantTarget = null;
     }
 
     public bool IsInCheck(bool white)
@@ -87,8 +91,84 @@ public class ChessGame
         var target = Board[toRow, toCol];
         if (target is King) return false;
         if (!legalMoves.Contains((toRow, toCol))) return false;
-        // Simulate move and check for self-check
-        var captured = Board[toRow, toCol];
+        // En passant capture
+        Piece? captured = Board[toRow, toCol];
+        if (piece is Pawn && EnPassantTarget.HasValue && toRow == EnPassantTarget.Value.row && toCol == EnPassantTarget.Value.col && Board[toRow, toCol] == null)
+        {
+            int capturedRow = piece.IsWhite ? toRow + 1 : toRow - 1;
+            captured = Board[capturedRow, toCol];
+            Board.Board[capturedRow, toCol] = null;
+        }
+        Board.MovePiece(fromRow, fromCol, toRow, toCol);
+        bool leavesOwnKingInCheck = IsInCheck(piece.IsWhite);
+        if (leavesOwnKingInCheck)
+        {
+            Board.UndoMove(new Move(fromRow, fromCol, toRow, toCol, captured));
+            // Restore en passant state
+            return false;
+        }
+        // Pawn promotion (auto-queen for now, UI can override)
+        if (piece is Pawn && (toRow == 0 || toRow == 7))
+        {
+            Board.Board[toRow, toCol] = new Queen(piece.IsWhite);
+            // After promotion, do NOT clear the original square again (already moved)
+            // Always switch turn after promotion
+            IsWhiteTurn = !IsWhiteTurn;
+            MoveHistory.Add(new Move(fromRow, fromCol, toRow, toCol, captured));
+            if (IsCheckmate(!IsWhiteTurn))
+            {
+                IsGameOver = true;
+            }
+            else if (IsStalemate(!IsWhiteTurn))
+            {
+                IsGameOver = true;
+            }
+            return true;
+        }
+        // Set en passant target
+        if (piece is Pawn && Math.Abs(toRow - fromRow) == 2)
+        {
+            int epRow = piece.IsWhite ? toRow + 1 : toRow - 1;
+            EnPassantTarget = (epRow, toCol);
+        }
+        else
+        {
+            EnPassantTarget = null;
+        }
+        MoveHistory.Add(new Move(fromRow, fromCol, toRow, toCol, captured));
+        // Check/checkmate/stalemate
+        if (IsCheckmate(!IsWhiteTurn))
+        {
+            IsGameOver = true;
+        }
+        else if (IsStalemate(!IsWhiteTurn))
+        {
+            IsGameOver = true;
+        }
+        // Always switch turn after a valid move
+        IsWhiteTurn = !IsWhiteTurn;
+        return true;
+    }
+
+    // Overload for pawn promotion
+    public bool TryMove(int fromRow, int fromCol, int toRow, int toCol, Piece? promotion = null)
+    {
+        if (IsGameOver) return false;
+        var piece = Board[fromRow, fromCol];
+        if (piece == null || piece.IsWhite != IsWhiteTurn) return false;
+        var legalMoves = piece.GetLegalMoves(Board, fromRow, fromCol);
+        // Prevent capturing the enemy king
+        var target = Board[toRow, toCol];
+        if (target is King) return false;
+        if (!legalMoves.Contains((toRow, toCol))) return false;
+        // En passant capture
+        Piece? captured = Board[toRow, toCol];
+        if (piece is Pawn && EnPassantTarget.HasValue && toRow == EnPassantTarget.Value.row && toCol == EnPassantTarget.Value.col && Board[toRow, toCol] == null)
+        {
+            int capturedRow = piece.IsWhite ? toRow + 1 : toRow - 1;
+            captured = Board[capturedRow, toCol];
+            Board.Board[capturedRow, toCol] = null;
+        }
         Board.MovePiece(fromRow, fromCol, toRow, toCol);
         bool leavesOwnKingInCheck = IsInCheck(piece.IsWhite);
         if (leavesOwnKingInCheck)
@@ -96,13 +176,33 @@ public class ChessGame
             Board.UndoMove(new Move(fromRow, fromCol, toRow, toCol, captured));
             return false;
         }
-        // Pawn promotion (auto-queen for now, UI can override)
+        // Pawn promotion (UI-driven or auto-queen)
         if (piece is Pawn && (toRow == 0 || toRow == 7))
         {
-            Board.Board[toRow, toCol] = new Queen(piece.IsWhite);
+            Board.Board[toRow, toCol] = promotion ?? new Queen(piece.IsWhite);
+            IsWhiteTurn = !IsWhiteTurn;
+            MoveHistory.Add(new Move(fromRow, fromCol, toRow, toCol, captured));
+            if (IsCheckmate(!IsWhiteTurn))
+            {
+                IsGameOver = true;
+            }
+            else if (IsStalemate(!IsWhiteTurn))
+            {
+                IsGameOver = true;
+            }
+            return true;
+        }
+        // Set en passant target
+        if (piece is Pawn && Math.Abs(toRow - fromRow) == 2)
+        {
+            int epRow = piece.IsWhite ? toRow + 1 : toRow - 1;
+            EnPassantTarget = (epRow, toCol);
+        }
+        else
+        {
+            EnPassantTarget = null;
         }
         MoveHistory.Add(new Move(fromRow, fromCol, toRow, toCol, captured));
-        // Check/checkmate/stalemate
         if (IsCheckmate(!IsWhiteTurn))
         {
             IsGameOver = true;
@@ -135,8 +235,9 @@ public class ChessGame
     {
         if (MoveHistory.Count == 0) return;
         var last = MoveHistory[^1];
-        Board.UndoMove(last);
+        Board.UndoMove(last);        
         MoveHistory.RemoveAt(MoveHistory.Count - 1);
         IsWhiteTurn = !IsWhiteTurn;
+        EnPassantTarget = null; // Reset en passant target
     }
 }

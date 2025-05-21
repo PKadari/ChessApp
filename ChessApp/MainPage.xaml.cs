@@ -224,7 +224,36 @@ public partial class MainPage : ContentPage
                         "Knight" => new Knight(movingPiece.IsWhite),
                         _ => new Queen(movingPiece.IsWhite)
                     };
-                    game.Board.Board[row, col] = promoted;
+                    if (game.TryMove(fromRow, fromCol, row, col, promoted))
+                    {
+                        selectedSquare = null;
+                        highlightedSquares.Clear();
+                        captureSquares.Clear();
+                        lastMoveSquares.Clear();
+                        lastMoveSquares.Add((fromRow, fromCol));
+                        lastMoveSquares.Add((row, col));
+                        if (game.IsGameOver)
+                        {
+                            if (game.IsCheckmate(game.IsWhiteTurn))
+                                await DisplayAlert("Checkmate!", $"{(game.IsWhiteTurn ? "White" : "Black")} is checkmated.", "OK");
+                            else
+                                await DisplayAlert("Stalemate!", "Draw by stalemate.", "OK");
+                        }
+                        else if (game.IsInCheck(game.IsWhiteTurn))
+                        {
+                            for (int r = 0; r < 8; r++)
+                                for (int c = 0; c < 8; c++)
+                                    if (game.Board[r, c] is King k && k.IsWhite == game.IsWhiteTurn)
+                                        kingInCheck = (r, c);
+                        }
+                        else
+                        {
+                            kingInCheck = null;
+                        }
+                        UpdateMoveHistoryPanel();
+                    }
+                    BuildChessBoard(boardGrid);
+                    return;
                 }
                 if (game.TryMove(fromRow, fromCol, row, col))
                 {
