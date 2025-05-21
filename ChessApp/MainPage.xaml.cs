@@ -11,13 +11,80 @@ public partial class MainPage : ContentPage
     private List<(int row, int col)> captureSquares = new();
     private (int row, int col)? kingInCheck = null;
     private List<(int row, int col)> lastMoveSquares = new();
-    private StackLayout moveHistoryPanel;
-    private Grid boardGrid;
-    private Grid parentGrid;
+    private StackLayout? moveHistoryPanel;
+    private Grid? boardGrid;
+    private Grid? parentGrid;
+    private bool aiEnabled = true; // Set to true to enable AI opponent
+    private bool aiIsWhite = false; // AI plays black by default
+    private bool isGameStarted = false;
+    private string selectedMode = "";
 
     public MainPage()
     {
+        ShowInitialScreen();
+    }
+
+    private void ShowInitialScreen()
+    {
+        var title = new Label
+        {
+            Text = "ChessApp",
+            FontSize = 36,
+            FontAttributes = FontAttributes.Bold,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
+            Margin = new Thickness(0, 40, 0, 20)
+        };
+        var pvpButton = new Button
+        {
+            Text = "Player vs Player",
+            FontSize = 22,
+            BackgroundColor = Colors.SteelBlue,
+            TextColor = Colors.White,
+            Margin = new Thickness(0, 10, 0, 10)
+        };
+        var pvaiButton = new Button
+        {
+            Text = "Player vs AI",
+            FontSize = 22,
+            BackgroundColor = Colors.DarkViolet,
+            TextColor = Colors.White,
+            Margin = new Thickness(0, 10, 0, 10)
+        };
+        pvpButton.Clicked += (s, e) =>
+        {
+            aiEnabled = false;
+            aiIsWhite = false;
+            selectedMode = "PvP";
+            StartGameUI();
+        };
+        pvaiButton.Clicked += (s, e) =>
+        {
+            aiEnabled = true;
+            aiIsWhite = false;
+            selectedMode = "PvAI";
+            StartGameUI();
+        };
+        var stack = new StackLayout
+        {
+            VerticalOptions = LayoutOptions.Center,
+            HorizontalOptions = LayoutOptions.Center,
+            Spacing = 20,
+            Children = { title, pvpButton, pvaiButton }
+        };
+        Content = stack;
+    }
+
+    private void StartGameUI()
+    {
+        isGameStarted = true;
+        game = new ChessGame();
         game.StartNewGame();
+        selectedSquare = null;
+        highlightedSquares.Clear();
+        captureSquares.Clear();
+        kingInCheck = null;
+        lastMoveSquares.Clear();
         boardGrid = new Grid
         {
             RowSpacing = 0,
@@ -31,8 +98,6 @@ public partial class MainPage : ContentPage
             boardGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         }
         BuildChessBoard(boardGrid);
-
-        // Move history panel
         moveHistoryPanel = new StackLayout
         {
             Orientation = StackOrientation.Vertical,
@@ -42,8 +107,6 @@ public partial class MainPage : ContentPage
             Spacing = 2
         };
         UpdateMoveHistoryPanel();
-
-        // Parent grid for labels + board + reset button + move history
         parentGrid = new Grid
         {
             RowSpacing = 0,
@@ -59,7 +122,6 @@ public partial class MainPage : ContentPage
         {
             parentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         }
-        // Add column labels (a-h)
         for (int col = 0; col < 8; col++)
         {
             var label = new Label
@@ -73,7 +135,6 @@ public partial class MainPage : ContentPage
             Grid.SetColumn(label, col + 1);
             parentGrid.Children.Add(label);
         }
-        // Add row labels (8-1)
         for (int row = 0; row < 8; row++)
         {
             var label = new Label
@@ -87,19 +148,15 @@ public partial class MainPage : ContentPage
             Grid.SetColumn(label, 0);
             parentGrid.Children.Add(label);
         }
-        // Place the boardGrid at (1,1) and span 8x8
         Grid.SetRow(boardGrid, 1);
         Grid.SetColumn(boardGrid, 1);
         Grid.SetRowSpan(boardGrid, 8);
         Grid.SetColumnSpan(boardGrid, 8);
         parentGrid.Children.Add(boardGrid);
-        // Place move history panel at right
         Grid.SetRow(moveHistoryPanel, 1);
         Grid.SetColumn(moveHistoryPanel, 9);
         Grid.SetRowSpan(moveHistoryPanel, 8);
         parentGrid.Children.Add(moveHistoryPanel);
-
-        // Add Reset button below the board
         var resetButton = new Button
         {
             Text = "Reset Game",
@@ -113,15 +170,15 @@ public partial class MainPage : ContentPage
         resetButton.Clicked += (s, e) =>
         {
             game.StartNewGame();
-            BuildChessBoard(boardGrid);
+            BuildChessBoard(boardGrid!);
             UpdateMoveHistoryPanel();
+            if (aiEnabled && aiIsWhite && !game.IsGameOver)
+                _ = MakeAIMoveIfNeeded();
         };
         Grid.SetRow(resetButton, 9);
         Grid.SetColumn(resetButton, 1);
         Grid.SetColumnSpan(resetButton, 8);
         parentGrid.Children.Add(resetButton);
-
-        // Add Undo button below the board
         var undoButton = new Button
         {
             Text = "Undo Move",
@@ -135,14 +192,33 @@ public partial class MainPage : ContentPage
         undoButton.Clicked += (s, e) =>
         {
             game.UndoLastMove();
-            BuildChessBoard(boardGrid);
+            BuildChessBoard(boardGrid!);
             UpdateMoveHistoryPanel();
         };
         Grid.SetRow(undoButton, 9);
         Grid.SetColumn(undoButton, 8);
         parentGrid.Children.Add(undoButton);
-
+        var homeButton = new Button
+        {
+            Text = "Home",
+            FontAttributes = FontAttributes.Bold,
+            BackgroundColor = Colors.DimGray,
+            TextColor = Colors.White,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
+            Margin = new Thickness(0, 10, 0, 10)
+        };
+        homeButton.Clicked += (s, e) =>
+        {
+            ShowInitialScreen();
+        };
+        Grid.SetRow(homeButton, 9);
+        Grid.SetColumn(homeButton, 2);
+        Grid.SetColumnSpan(homeButton, 2);
+        parentGrid.Children.Add(homeButton);
         Content = parentGrid;
+        if (aiEnabled && aiIsWhite && !game.IsGameOver)
+            _ = MakeAIMoveIfNeeded();
     }
 
     private void BuildChessBoard(Grid boardGrid)
@@ -257,9 +333,15 @@ public partial class MainPage : ContentPage
                         if (game.IsGameOver)
                         {
                             if (game.IsCheckmate(game.IsWhiteTurn))
-                                await DisplayAlert("Checkmate!", $"{(game.IsWhiteTurn ? "White" : "Black")} is checkmated.", "OK");
+                            {
+                                bool goHome = await DisplayAlert("Checkmate!", $"{(game.IsWhiteTurn ? "White" : "Black")} is checkmated.", "Home", "OK");
+                                if (goHome) { ShowInitialScreen(); return; }
+                            }
                             else
-                                await DisplayAlert("Stalemate!", "Draw by stalemate.", "OK");
+                            {
+                                bool goHome = await DisplayAlert("Stalemate!", "Draw by stalemate.", "Home", "OK");
+                                if (goHome) { ShowInitialScreen(); return; }
+                            }
                         }
                         else if (game.IsInCheck(game.IsWhiteTurn))
                         {
@@ -273,6 +355,10 @@ public partial class MainPage : ContentPage
                             kingInCheck = null;
                         }
                         UpdateMoveHistoryPanel();
+                        BuildChessBoard(boardGrid);
+                        // --- AI move after player move ---
+                        await MakeAIMoveIfNeeded();
+                        return;
                     }
                     BuildChessBoard(boardGrid);
                     return;
@@ -290,9 +376,15 @@ public partial class MainPage : ContentPage
                     if (game.IsGameOver)
                     {
                         if (game.IsCheckmate(game.IsWhiteTurn))
-                            await DisplayAlert("Checkmate!", $"{(game.IsWhiteTurn ? "White" : "Black")} is checkmated.", "OK");
+                        {
+                            bool goHome = await DisplayAlert("Checkmate!", $"{(game.IsWhiteTurn ? "White" : "Black")} is checkmated.", "Home", "OK");
+                            if (goHome) { ShowInitialScreen(); return; }
+                        }
                         else
-                            await DisplayAlert("Stalemate!", "Draw by stalemate.", "OK");
+                        {
+                            bool goHome = await DisplayAlert("Stalemate!", "Draw by stalemate.", "Home", "OK");
+                            if (goHome) { ShowInitialScreen(); return; }
+                        }
                     }
                     else if (game.IsInCheck(game.IsWhiteTurn))
                     {
@@ -306,6 +398,10 @@ public partial class MainPage : ContentPage
                         kingInCheck = null;
                     }
                     UpdateMoveHistoryPanel();
+                    BuildChessBoard(boardGrid);
+                    // --- AI move after player move ---
+                    await MakeAIMoveIfNeeded();
+                    return;
                 }
             }
             else if (piece != null && piece.IsWhite == game.IsWhiteTurn)
@@ -327,9 +423,106 @@ public partial class MainPage : ContentPage
         BuildChessBoard(boardGrid);
     }
 
+    private async Task MakeAIMoveIfNeeded()
+    {
+        if (!game.IsGameOver && !game.IsWhiteTurn && aiEnabled)
+        {
+            // Find all legal moves for black
+            var moves = new List<(int fromRow, int fromCol, int toRow, int toCol, Piece? promotion, int captureValue)>();
+            for (int r = 0; r < 8; r++)
+            {
+                for (int c = 0; c < 8; c++)
+                {
+                    var piece = game.Board[r, c];
+                    if (piece != null && !piece.IsWhite)
+                    {
+                        var legalMoves = piece.GetLegalMoves(game.Board, r, c);
+                        foreach (var (toRow, toCol) in legalMoves)
+                        {
+                            int captureValue = 0;
+                            var target = game.Board[toRow, toCol];
+                            if (target != null)
+                            {
+                                // Assign higher value for more valuable pieces
+                                captureValue = target switch
+                                {
+                                    King => 1000,
+                                    Queen => 9,
+                                    Rook => 5,
+                                    Bishop => 3,
+                                    Knight => 3,
+                                    Pawn => 1,
+                                    _ => 0
+                                };
+                            }
+                            if (piece is Pawn && toRow == 7)
+                            {
+                                moves.Add((r, c, toRow, toCol, new Queen(false), captureValue));
+                            }
+                            else
+                            {
+                                moves.Add((r, c, toRow, toCol, null, captureValue));
+                            }
+                        }
+                    }
+                }
+            }
+            if (moves.Count > 0)
+            {
+                // Prefer capturing moves
+                var bestCapture = moves.Where(m => m.captureValue > 0).OrderByDescending(m => m.captureValue).ToList();
+                (int fromRow, int fromCol, int toRow, int toCol, Piece? promotion, int captureValue) move;
+                if (bestCapture.Count > 0)
+                {
+                    move = bestCapture.First();
+                }
+                else
+                {
+                    var rand = new Random();
+                    move = moves[rand.Next(moves.Count)];
+                }
+                if (move.promotion != null)
+                    game.TryMove(move.fromRow, move.fromCol, move.toRow, move.toCol, move.promotion);
+                else
+                    game.TryMove(move.fromRow, move.fromCol, move.toRow, move.toCol);
+                // Highlight last move
+                lastMoveSquares.Clear();
+                lastMoveSquares.Add((move.fromRow, move.fromCol));
+                lastMoveSquares.Add((move.toRow, move.toCol));
+                // Check/checkmate UI
+                if (game.IsGameOver)
+                {
+                    if (game.IsCheckmate(game.IsWhiteTurn))
+                    {
+                        bool goHome = await DisplayAlert("Checkmate!", $"{(game.IsWhiteTurn ? "White" : "Black")} is checkmated.", "Home", "OK");
+                        if (goHome) { ShowInitialScreen(); return; }
+                    }
+                    else
+                    {
+                        bool goHome = await DisplayAlert("Stalemate!", "Draw by stalemate.", "Home", "OK");
+                        if (goHome) { ShowInitialScreen(); return; }
+                    }
+                }
+                else if (game.IsInCheck(game.IsWhiteTurn))
+                {
+                    for (int r = 0; r < 8; r++)
+                        for (int c = 0; c < 8; c++)
+                            if (game.Board[r, c] is King k && k.IsWhite == game.IsWhiteTurn)
+                                kingInCheck = (r, c);
+                }
+                else
+                {
+                    kingInCheck = null;
+                }
+                UpdateMoveHistoryPanel();
+                BuildChessBoard(boardGrid!);
+            }
+        }
+    }
+
     private void UpdateMoveHistoryPanel()
     {
-        moveHistoryPanel.Children.Clear();
+        moveHistoryPanel!.Children.Clear();
         int moveNum = 1;
         for (int i = 0; i < game.MoveHistory.Count; i += 2)
         {
@@ -356,5 +549,42 @@ public partial class MainPage : ContentPage
         };
         string capture = move.CapturedPiece != null ? "x" : "";
         return $"{piece}{fileFrom}{rankFrom}{capture}{fileTo}{rankTo}";
+    }
+
+    private void MakeAIMove()
+    {
+        if (!aiEnabled) return;
+        if (game.IsGameOver) return;
+        if (game.IsWhiteTurn == aiIsWhite)
+        {
+            // Find all legal moves for AI
+            var moves = new List<(int fromRow, int fromCol, int toRow, int toCol)>();
+            for (int r = 0; r < 8; r++)
+                for (int c = 0; c < 8; c++)
+                {
+                    var piece = game.Board[r, c];
+                    if (piece != null && piece.IsWhite == aiIsWhite)
+                    {
+                        foreach (var (tr, tc) in piece.GetLegalMoves(game.Board, r, c))
+                        {
+                            // Only add legal moves
+                            if (game.TryMove(r, c, tr, tc))
+                            {
+                                game.UndoLastMove();
+                                moves.Add((r, c, tr, tc));
+                            }
+                        }
+                    }
+                }
+            if (moves.Count > 0)
+            {
+                // Pick a random move (easy AI)
+                var rand = new Random();
+                var move = moves[rand.Next(moves.Count)];
+                game.TryMove(move.fromRow, move.fromCol, move.toRow, move.toCol);
+                BuildChessBoard(boardGrid!);
+                UpdateMoveHistoryPanel();
+            }
+        }
     }
 }
