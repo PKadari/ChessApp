@@ -11,7 +11,7 @@ obj/
 Thumbs.db
 
 # Ignore OOPs directory
-ChessApp/OOPs/
+ChessApp/OOPs
 
 # Ignore all markdown files except README.md
 ChessApp/*.md

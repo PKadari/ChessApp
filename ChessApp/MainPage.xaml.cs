@@ -104,7 +104,8 @@ public partial class MainPage : ContentPage
         {
             Text = "Reset Game",
             FontAttributes = FontAttributes.Bold,
-            BackgroundColor = Colors.LightGray,
+            BackgroundColor = Colors.ForestGreen,
+            TextColor = Colors.White,
             HorizontalOptions = LayoutOptions.Center,
             VerticalOptions = LayoutOptions.Center,
             Margin = new Thickness(0, 10, 0, 10)
@@ -119,6 +120,27 @@ public partial class MainPage : ContentPage
         Grid.SetColumn(resetButton, 1);
         Grid.SetColumnSpan(resetButton, 8);
         parentGrid.Children.Add(resetButton);
+
+        // Add Undo button below the board
+        var undoButton = new Button
+        {
+            Text = "Undo Move",
+            FontAttributes = FontAttributes.Bold,
+            BackgroundColor = Colors.OrangeRed,
+            TextColor = Colors.White,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Center,
+            Margin = new Thickness(0, 10, 0, 10)
+        };
+        undoButton.Clicked += (s, e) =>
+        {
+            game.UndoLastMove();
+            BuildChessBoard(boardGrid);
+            UpdateMoveHistoryPanel();
+        };
+        Grid.SetRow(undoButton, 9);
+        Grid.SetColumn(undoButton, 8);
+        parentGrid.Children.Add(undoButton);
 
         Content = parentGrid;
     }

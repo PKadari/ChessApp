@@ -10,6 +10,8 @@ public class ChessGame
     // Track en passant target square (row, col)
     public (int row, int col)? EnPassantTarget { get; private set; } = null;
 
+    public static (int row, int col)? CurrentEnPassantTarget { get; set; } = null;
+
     public void StartNewGame()
     {
         Board.Clear();
@@ -83,6 +85,8 @@ public class ChessGame
 
     public bool TryMove(int fromRow, int fromCol, int toRow, int toCol)
     {
+        CurrentEnPassantTarget = EnPassantTarget;
+
         if (IsGameOver) return false;
         var piece = Board[fromRow, fromCol];
         if (piece == null || piece.IsWhite != IsWhiteTurn) return false;
@@ -128,7 +132,8 @@ public class ChessGame
         // Set en passant target
         if (piece is Pawn && Math.Abs(toRow - fromRow) == 2)
         {
-            int epRow = piece.IsWhite ? toRow + 1 : toRow - 1;
+            // The en passant target should be the square the pawn passed over, not the destination
+            int epRow = (fromRow + toRow) / 2;
             EnPassantTarget = (epRow, toCol);
         }
         else
@@ -153,6 +158,8 @@ public class ChessGame
     // Overload for pawn promotion
     public bool TryMove(int fromRow, int fromCol, int toRow, int toCol, Piece? promotion = null)
     {
+        CurrentEnPassantTarget = EnPassantTarget;
+
         if (IsGameOver) return false;
         var piece = Board[fromRow, fromCol];
         if (piece == null || piece.IsWhite != IsWhiteTurn) return false;
@@ -195,7 +202,8 @@ public class ChessGame
         // Set en passant target
         if (piece is Pawn && Math.Abs(toRow - fromRow) == 2)
         {
-            int epRow = piece.IsWhite ? toRow + 1 : toRow - 1;
+            // The en passant target should be the square the pawn passed over, not the destination
+            int epRow = (fromRow + toRow) / 2;
             EnPassantTarget = (epRow, toCol);
         }
         else

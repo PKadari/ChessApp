@@ -131,7 +131,20 @@ public class Pawn : Piece
                     moves.Add((nr, nc));
             }
         }
-        // TODO: En passant and promotion handled in ChessBoard/ChessGame
+        // En passant: handled in ChessGame, but expose a static property for the current target
+        if (ChessGame.CurrentEnPassantTarget.HasValue)
+        {
+            var ep = ChessGame.CurrentEnPassantTarget.Value;
+            int enPassantRow = IsWhite ? 4 : 3; // 5th rank for white (row 4), 4th for black (row 3)
+            if (row == enPassantRow && ep.row == row + dir && Math.Abs(ep.col - col) == 1)
+            {
+                // The captured pawn must be a pawn of the opposite color and must have just moved two squares to land next to this pawn
+                if (board[row, ep.col] is Pawn capturedPawn && capturedPawn.IsWhite != IsWhite)
+                {
+                    moves.Add((ep.row, ep.col));
+                }
+            }
+        }
         return moves;
     }
 }
