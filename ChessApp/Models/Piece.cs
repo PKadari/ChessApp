@@ -49,9 +49,18 @@ public class King : Piece
                     moves.Add((nr, nc));
             }
         }
-        // Castling handled in ChessBoard
+        // Castling: Only add if ChessBoard is part of ChessGame and rights allow
+        if (board is ChessBoard && ChessGameRef != null)
+        {
+            if (ChessGameRef.CanCastleKingside(IsWhite))
+                moves.Add((row, col + 2));
+            if (ChessGameRef.CanCastleQueenside(IsWhite))
+                moves.Add((row, col - 2));
+        }
         return moves;
     }
+    // Reference to the game for castling rights
+    public static ChessGame? ChessGameRef { get; set; }
 }
 
 public class Queen : Piece

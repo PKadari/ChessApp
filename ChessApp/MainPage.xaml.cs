@@ -16,8 +16,6 @@ public partial class MainPage : ContentPage
     private Grid? parentGrid;
     private bool aiEnabled = true; // Set to true to enable AI opponent
     private bool aiIsWhite = false; // AI plays black by default
-    private bool isGameStarted = false;
-    private string selectedMode = "";
 
     public MainPage()
     {
@@ -55,14 +53,12 @@ public partial class MainPage : ContentPage
         {
             aiEnabled = false;
             aiIsWhite = false;
-            selectedMode = "PvP";
             StartGameUI();
         };
         pvaiButton.Clicked += (s, e) =>
         {
             aiEnabled = true;
             aiIsWhite = false;
-            selectedMode = "PvAI";
             StartGameUI();
         };
         var stack = new StackLayout
@@ -77,7 +73,6 @@ public partial class MainPage : ContentPage
 
     private void StartGameUI()
     {
-        isGameStarted = true;
         game = new ChessGame();
         game.StartNewGame();
         selectedSquare = null;
